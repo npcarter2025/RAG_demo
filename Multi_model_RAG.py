@@ -159,10 +159,8 @@ class IntegratedRAG:
         self,
         documents_path: str = "documents",
         use_openai: bool = False,
-        use_openrouter: bool = False,
         ollama_model: str = "gemma3:1b",
         openai_model: str = "gpt-3.5-turbo",
-        openrouter_model: str = "openai/gpt-3.5-turbo",
         collection_name: str = "default",
         memory_file: str = ".rag_memory.json",
         log_file: Optional[str] = ".rag_conversation.log",
@@ -176,31 +174,27 @@ class IntegratedRAG:
         Args:
             documents_path: Path to a file or directory containing files of any supported type
             use_openai: If True, use OpenAI API. If False, use local LLM (Ollama)
-            use_openrouter: If True, use OpenRouter API (overrides use_openai)
             ollama_model: Ollama model name (default: "gemma3:1b")
             openai_model: OpenAI model name (default: "gpt-3.5-turbo"). Cheaper options: "gpt-4o-mini", "gpt-3.5-turbo"
-            openrouter_model: OpenRouter model name (default: "openai/gpt-3.5-turbo"). Examples: "openai/gpt-4o-mini", "anthropic/claude-3-haiku", "google/gemini-pro"
             collection_name: Name of the ChromaDB collection (allows multiple indexes)
             memory_file: Path to save conversation history
             log_file: Path to log file for full conversation history (default: ".rag_conversation.log", None to disable)
-            use_tokenizer: If True, use token-based chunking. If False, use character-based. If None, auto-detect (token-based for OpenAI/OpenRouter, character-based for Ollama)
+            use_tokenizer: If True, use token-based chunking. If False, use character-based. If None, auto-detect (token-based for OpenAI, character-based for Ollama)
             chunk_size: Chunk size in tokens (if use_tokenizer=True) or characters (if False). Default: 1000
             chunk_overlap: Chunk overlap in tokens (if use_tokenizer=True) or characters (if False). Default: 200
         """
         self.documents_path = Path(documents_path)
         self.use_openai = use_openai
-        self.use_openrouter = use_openrouter
         self.ollama_model = ollama_model
         self.openai_model = openai_model
-        self.openrouter_model = openrouter_model
         self.collection_name = collection_name
         self.memory_file = Path(memory_file)
         self.log_file = Path(log_file) if log_file else None
         
         # Auto-detect tokenizer usage if not specified
         if use_tokenizer is None:
-            # Use tokenizer for cloud APIs (OpenAI/OpenRouter), character-based for local (Ollama)
-            self.use_tokenizer = use_openai or use_openrouter
+            # Use tokenizer for cloud APIs (OpenAI), character-based for local (Ollama)
+            self.use_tokenizer = use_openai
         else:
             self.use_tokenizer = use_tokenizer
         
@@ -339,14 +333,7 @@ class IntegratedRAG:
             with open(self.log_file, 'a', encoding='utf-8') as f:
                 f.write("\n" + "="*80 + "\n")
                 f.write(f"Timestamp: {timestamp}\n")
-                # Determine which model is being used
-                if self.use_openrouter:
-                    model_name = f"OpenRouter/{self.openrouter_model}"
-                elif self.use_openai:
-                    model_name = f"OpenAI/{self.openai_model}"
-                else:
-                    model_name = f"Ollama/{self.ollama_model}"
-                f.write(f"Model: {model_name}\n")
+                f.write(f"Model: {self.openai_model if self.use_openai else self.ollama_model}\n")
                 if metadata:
                     f.write(f"Filter: {metadata}\n")
                 f.write("-"*80 + "\n")
@@ -793,29 +780,7 @@ class IntegratedRAG:
             return
         
         # Initialize LLM
-        if self.use_openrouter:
-            # Use OpenRouter API
-            api_key = os.getenv("OPENROUTER_API_KEY")
-            if not api_key:
-                print("❌ OPENROUTER_API_KEY not found in environment variables.")
-                print("   Please create a .env file with: OPENROUTER_API_KEY=your_key")
-                print("   Get your key from: https://openrouter.ai/keys")
-                print("   Or use Ollama (default) or OpenAI by removing --openrouter flag")
-                return
-            print(f"Using OpenRouter: {self.openrouter_model}")
-            print("   (Access multiple models through one API)")
-            # OpenRouter uses OpenAI-compatible API
-            llm = ChatOpenAI(
-                model=self.openrouter_model,
-                temperature=0,
-                api_key=api_key,
-                base_url="https://openrouter.ai/api/v1",
-                default_headers={
-                    "HTTP-Referer": "https://github.com/yourusername/RootSearch",  # Optional: for attribution
-                    "X-Title": "RootSearch RAG System"  # Optional: for attribution
-                }
-            )
-        elif self.use_openai:
+        if self.use_openai:
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 print("❌ OPENAI_API_KEY not found in environment variables.")
@@ -884,10 +849,9 @@ class IntegratedRAG:
         last_error = None
         for attempt in range(self.retry_count):
             try:
-                # Notify user about API call (RAG always uses API when OpenAI/OpenRouter is enabled)
-                if (self.use_openai or self.use_openrouter) and attempt == 0:
-                    provider = "OpenRouter" if self.use_openrouter else "OpenAI"
-                    print(f"   🔄 Querying {provider} API (searching documents + generating answer)...")
+                # Notify user about API call (RAG always uses API when OpenAI is enabled)
+                if self.use_openai and attempt == 0:
+                    print("   🔄 Querying OpenAI API (searching documents + generating answer)...")
                 
                 result = self.qa_chain.invoke({"question": question})
                 answer = result["answer"]
@@ -932,9 +896,8 @@ class IntegratedRAG:
                     # Try direct LLM call for general knowledge questions
                     try:
                         # Notify user that we're making an API call
-                        if self.use_openai or self.use_openrouter:
-                            provider = "OpenRouter" if self.use_openrouter else "OpenAI"
-                            print(f"   🔄 Making {provider} API call (RAG didn't find relevant documents)...")
+                        if self.use_openai:
+                            print("   🔄 Making OpenAI API call (RAG didn't find relevant documents)...")
                         
                         # Check if question is about current date/time
                         question_lower = question.lower()
@@ -972,9 +935,7 @@ Please answer the user's question using the current date/time information provid
                             if not any(phrase in fallback_lower for phrase in dont_know_phrases) and len(fallback_answer) > 20:
                                 source_note = "no relevant documents found" if not has_sources else "retrieved documents weren't relevant"
                                 return f"{fallback_answer}\n\n💡 (Answered using general knowledge - {source_note})"
-                    except Exception as fallback_error:
-                        # Log the error but don't crash - return original answer
-                        print(f"   ⚠️  Fallback failed: {str(fallback_error)[:100]}")
+                    except Exception:
                         pass  # If fallback fails, return original answer
                 
                 return answer
@@ -1375,13 +1336,6 @@ Do not include explanations. Only return the code block."""
                 if self.log_file:
                     print(f"📝 Full conversation logged to: {self.log_file}")
                 break
-            except Exception as e:
-                # Catch any other unexpected errors
-                print(f"\n❌ Unexpected error: {e}")
-                import traceback
-                traceback.print_exc()
-                print("\n⚠️  Continuing chat session... (Press Ctrl+C to exit)\n")
-                # Don't break - continue the loop so user can keep chatting
 
 
 def main():
@@ -1413,11 +1367,6 @@ def main():
         help="Use OpenAI API instead of Ollama (Ollama is the default)"
     )
     parser.add_argument(
-        "--openrouter",
-        action="store_true",
-        help="Use OpenRouter API instead of Ollama or OpenAI (Ollama is the default). Access multiple models through one API."
-    )
-    parser.add_argument(
         "--model",
         type=str,
         default="gemma3:1b",
@@ -1429,13 +1378,6 @@ def main():
         dest="openai_model",
         default="gpt-3.5-turbo",
         help="OpenAI model name (default: 'gpt-3.5-turbo'). Cheaper options: 'gpt-4o-mini' (cheapest), 'gpt-3.5-turbo'"
-    )
-    parser.add_argument(
-        "--openrouter-model",
-        type=str,
-        dest="openrouter_model",
-        default="openai/gpt-3.5-turbo",
-        help="OpenRouter model name (default: 'openai/gpt-3.5-turbo'). Examples: 'openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'google/gemini-pro', 'meta-llama/llama-3.1-8b-instruct'. See https://openrouter.ai/models"
     )
     parser.add_argument(
         "--collection",
@@ -1493,10 +1435,8 @@ def main():
     rag = IntegratedRAG(
         documents_path=args.documents,
         use_openai=args.openai,
-        use_openrouter=args.openrouter,
         ollama_model=args.model,
         openai_model=args.openai_model,
-        openrouter_model=args.openrouter_model,
         collection_name=args.collection,
         log_file=log_file,
         use_tokenizer=use_tokenizer,
