@@ -46,6 +46,7 @@ chroma_db/
 # RAG system files
 .rag_memory*.json
 .file_hashes*.json
+.rag_conversation*.log
 .backups/
 
 # Test files (optional - uncomment if you don't want to commit tests)

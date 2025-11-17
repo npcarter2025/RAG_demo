@@ -1,13 +1,37 @@
 #!/usr/bin/env python3
 """
-Inline Edit RAG CLI - RAG system with inline code editing capabilities
+Integrated RAG CLI - RAG system with support for all file types
 Features:
-- All features from Dynamic_Rag.py
-- Inline editing of existing files (diff-based)
-- Backup before editing
-- Preview changes with diff
-- User approval workflow
-- Auto-reindex after edits
+- All features from Inline_Edit_Rag.py
+- Support for multiple programming languages:
+  - TypeScript (.ts, .tsx)
+  - JavaScript (.js, .jsx)
+  - C/C++ (.c, .cpp, .cc, .cxx, .h, .hpp)
+  - SystemVerilog (.sv, .svh)
+  - Verilog (.v, .vh)
+  - VHDL (.vhd, .vhdl)
+  - Python (.py)
+  - Perl (.pl, .pm, .pod)
+  - Tcl/Tk (.tcl, .tk)
+  - Build systems:
+    - Makefile (Makefile, .mk, .make)
+    - CMake (CMakeLists.txt, .cmake)
+  - ASIC Physical Design formats:
+    - LEF (.lef) - Library Exchange Format
+    - DEF (.def) - Design Exchange Format
+    - SPEF (.spef) - Standard Parasitic Exchange Format
+    - SDC (.sdc) - Synopsys Design Constraints
+    - LIB (.lib) - Liberty timing library
+    - SDF (.sdf) - Standard Delay Format
+    - SPICE (.sp, .spice, .cir) - Circuit simulation
+    - CDL (.cdl) - Circuit Description Language
+    - UPF (.upf) - Unified Power Format
+    - CPF (.cpf) - Common Power Format
+    - GDSII (.gds, .gds2) - Layout database
+  - Text files (.txt, .md)
+  - And more!
+- Language-aware chunking and metadata
+- Inline editing of any supported file type
 """
 
 import os
@@ -37,7 +61,100 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-class InlineEditRAG:
+class IntegratedRAG:
+    # Language mapping: extension -> language name
+    LANGUAGE_MAP = {
+        # Python
+        '.py': 'python',
+        # TypeScript
+        '.ts': 'typescript',
+        '.tsx': 'typescript',
+        # JavaScript
+        '.js': 'javascript',
+        '.jsx': 'javascript',
+        '.mjs': 'javascript',
+        # C/C++
+        '.c': 'c',
+        '.cpp': 'cpp',
+        '.cc': 'cpp',
+        '.cxx': 'cpp',
+        '.h': 'c',
+        '.hpp': 'cpp',
+        '.hxx': 'cpp',
+        # SystemVerilog/Verilog
+        '.sv': 'systemverilog',
+        '.svh': 'systemverilog',
+        '.v': 'verilog',
+        '.vh': 'verilog',
+        # VHDL
+        '.vhd': 'vhdl',
+        '.vhdl': 'vhdl',
+        # Text/Markdown
+        '.txt': 'text',
+        '.md': 'markdown',
+        '.rst': 'text',
+        # Other common languages
+        '.java': 'java',
+        '.go': 'go',
+        '.rs': 'rust',
+        '.rb': 'ruby',
+        '.php': 'php',
+        '.swift': 'swift',
+        '.kt': 'kotlin',
+        '.scala': 'scala',
+        '.sh': 'bash',
+        '.bash': 'bash',
+        '.zsh': 'bash',
+        '.fish': 'bash',
+        '.yaml': 'yaml',
+        '.yml': 'yaml',
+        '.json': 'json',
+        '.xml': 'xml',
+        '.html': 'html',
+        '.css': 'css',
+        '.scss': 'scss',
+        '.sass': 'sass',
+        '.sql': 'sql',
+        '.r': 'r',
+        '.m': 'matlab',
+        # Perl
+        '.pl': 'perl',
+        '.pm': 'perl',
+        '.pod': 'perl',
+        # Tcl/Tk
+        '.tcl': 'tcl',
+        '.tk': 'tcl',
+        # Build systems
+        '.mk': 'makefile',  # Makefile
+        '.make': 'makefile',  # Makefile
+        '.cmake': 'cmake',  # CMake script
+        # ASIC Physical Design formats
+        '.lef': 'lef',  # Library Exchange Format
+        '.def': 'def',  # Design Exchange Format
+        '.spef': 'spef',  # Standard Parasitic Exchange Format
+        '.sdc': 'sdc',  # Synopsys Design Constraints
+        '.tlf': 'tlf',  # Timing Library Format
+        '.lib': 'lib',  # Liberty timing library
+        '.sdf': 'sdf',  # Standard Delay Format
+        '.sp': 'spice',  # SPICE netlist
+        '.spice': 'spice',  # SPICE netlist
+        '.cir': 'spice',  # SPICE circuit
+        '.cdl': 'cdl',  # Circuit Description Language
+        '.upf': 'upf',  # Unified Power Format
+        '.cpf': 'cpf',  # Common Power Format
+        '.gds': 'gds',  # GDSII layout
+        '.gds2': 'gds',  # GDSII layout
+        '.mw': 'milkyway',  # Cadence Milkyway database
+        # Other formats
+        '.lua': 'lua',
+        '.clj': 'clojure',
+        '.hs': 'haskell',
+        '.ml': 'ocaml',
+        '.fs': 'fsharp',
+        '.ex': 'elixir',
+        '.erl': 'erlang',
+    }
+    
     def __init__(
         self,
         documents_path: str = "documents",
@@ -45,18 +162,20 @@ class InlineEditRAG:
         ollama_model: str = "gemma3:1b",
         openai_model: str = "gpt-3.5-turbo",
         collection_name: str = "default",
-        memory_file: str = ".rag_memory.json"
+        memory_file: str = ".rag_memory.json",
+        log_file: Optional[str] = ".rag_conversation.log"
     ):
         """
-        Initialize the RAG system with inline editing capabilities.
+        Initialize the Integrated RAG system with multi-language support.
         
         Args:
-            documents_path: Path to a file or directory containing .txt, .md, or .py files
+            documents_path: Path to a file or directory containing files of any supported type
             use_openai: If True, use OpenAI API. If False, use local LLM (Ollama)
             ollama_model: Ollama model name (default: "gemma3:1b")
             openai_model: OpenAI model name (default: "gpt-3.5-turbo"). Cheaper options: "gpt-4o-mini", "gpt-3.5-turbo"
             collection_name: Name of the ChromaDB collection (allows multiple indexes)
             memory_file: Path to save conversation history
+            log_file: Path to log file for full conversation history (default: ".rag_conversation.log", None to disable)
         """
         self.documents_path = Path(documents_path)
         self.use_openai = use_openai
@@ -64,6 +183,7 @@ class InlineEditRAG:
         self.openai_model = openai_model
         self.collection_name = collection_name
         self.memory_file = Path(memory_file)
+        self.log_file = Path(log_file) if log_file else None
         self.vectorstore = None
         self.qa_chain = None
         self.memory = ConversationBufferMemory(
@@ -91,6 +211,23 @@ class InlineEditRAG:
         self.embeddings = HuggingFaceEmbeddings(
             model_name="all-MiniLM-L6-v2"
         )
+    
+    def get_language_from_extension(self, file_path: Path) -> str:
+        """Get language name from file extension or special filename."""
+        # Handle special filenames (no extension)
+        filename_lower = file_path.name.lower()
+        if filename_lower == 'makefile' or filename_lower.startswith('makefile.'):
+            return 'makefile'
+        if filename_lower == 'cmakelists.txt':
+            return 'cmake'
+        
+        # Handle regular extensions
+        ext = file_path.suffix.lower()
+        return self.LANGUAGE_MAP.get(ext, 'text')
+    
+    def get_supported_extensions(self) -> List[str]:
+        """Get list of all supported file extensions."""
+        return list(self.LANGUAGE_MAP.keys())
     
     def load_memory(self):
         """Load conversation history from disk."""
@@ -124,6 +261,44 @@ class InlineEditRAG:
                 json.dump(history, f, indent=2)
         except Exception as e:
             print(f"⚠️  Could not save conversation history: {e}")
+    
+    def log_conversation(self, question: str, answer: str, metadata: Optional[Dict] = None):
+        """Log conversation to file with timestamp and metadata."""
+        if not self.log_file:
+            return
+        
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Extract sources from answer if present
+            sources = None
+            if "📄 Sources:" in answer:
+                sources_line = answer.split("📄 Sources:")[-1].strip()
+                sources = sources_line.split(", ") if sources_line else None
+                # Remove sources from answer for cleaner log
+                answer_clean = answer.split("📄 Sources:")[0].strip()
+            else:
+                answer_clean = answer
+            
+            # Check if general knowledge was used
+            used_general_knowledge = "💡" in answer
+            
+            with open(self.log_file, 'a', encoding='utf-8') as f:
+                f.write("\n" + "="*80 + "\n")
+                f.write(f"Timestamp: {timestamp}\n")
+                f.write(f"Model: {self.openai_model if self.use_openai else self.ollama_model}\n")
+                if metadata:
+                    f.write(f"Filter: {metadata}\n")
+                f.write("-"*80 + "\n")
+                f.write(f"QUESTION:\n{question}\n\n")
+                f.write(f"ANSWER:\n{answer_clean}\n")
+                if sources:
+                    f.write(f"\nSources: {', '.join(sources)}\n")
+                if used_general_knowledge:
+                    f.write("\n[Used general knowledge fallback]\n")
+                f.write("="*80 + "\n")
+        except Exception as e:
+            print(f"⚠️  Could not write to log file: {e}")
     
     def load_file_hashes(self):
         """Load file hashes for incremental indexing."""
@@ -195,7 +370,12 @@ class InlineEditRAG:
         """
         Find a function or class by name in a Python file.
         Returns dict with 'type', 'name', 'start_line', 'end_line', 'code', 'full_content'.
+        Note: Currently only supports Python. Can be extended for other languages.
         """
+        language = self.get_language_from_extension(file_path)
+        if language != 'python':
+            return None  # Only Python AST parsing supported for now
+        
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -219,166 +399,6 @@ class InlineEditRAG:
         except Exception as e:
             print(f"⚠️  Error parsing {file_path}: {e}")
             return None
-    
-    def replace_function_or_class(self, file_path: Path, name: str, new_code: str) -> Tuple[bool, str, Optional[str]]:
-        """
-        Replace a function or class in a file with new code.
-        Returns (success, message, diff).
-        """
-        # Find the function/class
-        func_info = self.find_function_or_class(file_path, name)
-        if not func_info:
-            return False, f"❌ Could not find function/class '{name}' in {file_path}", None
-        
-        # Read original file
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                original_content = f.read()
-        except Exception as e:
-            return False, f"❌ Error reading file: {e}", None
-        
-        # Create backup
-        backup_path = self.backup_file(file_path)
-        if not backup_path:
-            return False, "❌ Could not create backup. Aborting edit.", None
-        
-        # Replace the function/class code
-        lines = original_content.splitlines(keepends=True)
-        start_idx = func_info['start_line'] - 1
-        end_idx = func_info['end_line']
-        
-        # Extract the new code (remove function/class definition if it's in the new_code)
-        new_code_lines = new_code.splitlines(keepends=True)
-        
-        # Build new content
-        new_lines = lines[:start_idx] + new_code_lines + lines[end_idx:]
-        new_content = ''.join(new_lines)
-        
-        # Create diff
-        diff = self.create_diff(original_content, new_content, file_path.name)
-        
-        # Show preview
-        print(f"\n📝 Proposed changes to {file_path.name}:")
-        print("=" * 60)
-        print(diff)
-        print("=" * 60)
-        
-        # Ask for approval
-        while True:
-            choice = input("\nApply changes? [y/n]: ").strip().lower()
-            if choice == 'y' or choice == 'yes':
-                try:
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        f.write(new_content)
-                    
-                    # Update file hash
-                    self.file_hashes[str(file_path)] = self.get_file_hash(file_path)
-                    self.save_file_hashes()
-                    
-                    return True, f"✅ Updated {file_path.name} (backup: {backup_path.name})", diff
-                except Exception as e:
-                    return False, f"❌ Error writing file: {e}", None
-            elif choice == 'n' or choice == 'no':
-                return False, "❌ Edit cancelled by user.", diff
-            else:
-                print("Please enter 'y' or 'n'")
-    
-    def edit_file_inline(self, file_path: Path, instruction: str) -> Tuple[bool, str]:
-        """
-        Edit a file based on a natural language instruction.
-        Uses the LLM to generate the edit, then applies it with diff preview.
-        """
-        if not self.qa_chain:
-            return False, "❌ QA chain not set up. Please index documents first."
-        
-        # Read the file
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                file_content = f.read()
-        except Exception as e:
-            return False, f"❌ Error reading file: {e}"
-        
-        # Ask LLM to generate the edited version
-        # For small models, use a more structured prompt
-        prompt = f"""You are a code editor. Edit the following Python file according to the instruction.
-
-CURRENT FILE ({file_path.name}):
-```python
-{file_content}
-```
-
-INSTRUCTION: {instruction}
-
-REQUIREMENTS:
-1. You MUST modify the code according to the instruction
-2. Return the COMPLETE file with your changes
-3. Preserve all existing code that doesn't need to change
-4. Only modify what the instruction asks for
-5. Keep the same file structure, imports, and formatting
-
-Return ONLY the complete edited code in a markdown code block:
-```python
-[complete file with edits applied]
-```
-
-Do not include explanations. Only return the code block."""
-        
-        try:
-            result = self.qa_chain.invoke({"question": prompt})
-            answer = result["answer"]
-            
-            # Extract code block
-            code_blocks = self.extract_code_blocks(answer)
-            if not code_blocks:
-                return False, "❌ LLM did not return code in a code block. Try rephrasing your request."
-            
-            # Get the Python code (should be the full file)
-            new_content = code_blocks[0][1]  # (lang, code)
-            
-            # Normalize whitespace for comparison
-            old_normalized = file_content.replace('\r\n', '\n').replace('\r', '\n').strip()
-            new_normalized = new_content.replace('\r\n', '\n').replace('\r', '\n').strip()
-            
-            # Check if content actually changed
-            if old_normalized == new_normalized:
-                return False, "❌ LLM returned unchanged code. The edit instruction may not have been clear enough, or the model didn't make the requested changes. Try rephrasing your instruction."
-            
-            # Create backup
-            backup_path = self.backup_file(file_path)
-            if not backup_path:
-                return False, "❌ Could not create backup. Aborting edit."
-            
-            # Create diff
-            diff = self.create_diff(file_content, new_content, file_path.name)
-            
-            # Show preview
-            print(f"\n📝 Proposed changes to {file_path.name}:")
-            print("=" * 60)
-            print(diff)
-            print("=" * 60)
-            
-            # Ask for approval
-            while True:
-                choice = input("\nApply changes? [y/n]: ").strip().lower()
-                if choice == 'y' or choice == 'yes':
-                    try:
-                        with open(file_path, 'w', encoding='utf-8') as f:
-                            f.write(new_content)
-                        
-                        # Update file hash
-                        self.file_hashes[str(file_path)] = self.get_file_hash(file_path)
-                        self.save_file_hashes()
-                        
-                        return True, f"✅ Updated {file_path.name} (backup: {backup_path.name})"
-                    except Exception as e:
-                        return False, f"❌ Error writing file: {e}"
-                elif choice == 'n' or choice == 'no':
-                    return False, "❌ Edit cancelled by user."
-                else:
-                    print("Please enter 'y' or 'n'")
-        
-        except Exception as e:
-            return False, f"❌ Error generating edit: {e}"
     
     def parse_python_file(self, file_path: Path, content: str) -> List[Document]:
         """
@@ -480,21 +500,61 @@ Do not include explanations. Only return the code block."""
         
         return chunks
     
+    def parse_code_file(self, file_path: Path, content: str) -> List[Document]:
+        """
+        Parse a code file (non-Python) with language-aware chunking.
+        Returns list of Document objects with metadata.
+        """
+        language = self.get_language_from_extension(file_path)
+        
+        # Use text-based chunking for non-Python files
+        # Could be enhanced with language-specific parsers in the future
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len,
+        )
+        text_chunks = text_splitter.split_text(content)
+        
+        chunks = []
+        for i, chunk in enumerate(text_chunks):
+            chunks.append(Document(
+                page_content=chunk,
+                metadata={
+                    "source": str(file_path),
+                    "type": "code",
+                    "language": language,
+                    "file_name": file_path.name,
+                    "chunk_index": i
+                }
+            ))
+        
+        return chunks
+    
     def load_documents(self, incremental: bool = True) -> Tuple[List[Document], List[str]]:
         """
-        Load .txt, .md, and .py files with metadata and incremental indexing support.
+        Load files of all supported types with metadata and incremental indexing support.
         Returns tuple of (documents, file_paths).
         """
         documents = []
         file_paths = []
-        supported_extensions = ['.txt', '.md', '.py']
+        supported_extensions = self.get_supported_extensions()
         new_files = []
         changed_files = []
         
         # Check if it's a single file
         if self.documents_path.is_file():
             file_path = self.documents_path
-            if file_path.suffix.lower() in supported_extensions:
+            ext = file_path.suffix.lower()
+            filename_lower = file_path.name.lower()
+            
+            # Check if it's a supported extension or special filename
+            is_supported = (ext in supported_extensions or 
+                          filename_lower == 'makefile' or 
+                          filename_lower.startswith('makefile.') or
+                          filename_lower == 'cmakelists.txt')
+            
+            if is_supported:
                 file_hash = self.get_file_hash(file_path)
                 stored_hash = self.file_hashes.get(str(file_path))
                 
@@ -503,38 +563,26 @@ Do not include explanations. Only return the code block."""
                         with open(file_path, "r", encoding="utf-8") as f:
                             content = f.read()
                             if content.strip():
-                                if file_path.suffix.lower() == '.py':
+                                language = self.get_language_from_extension(file_path)
+                                
+                                if language == 'python':
                                     # Use AST parsing for Python files
                                     chunks = self.parse_python_file(file_path, content)
                                     documents.extend(chunks)
                                 else:
-                                    # Regular chunking for text files
-                                    text_splitter = RecursiveCharacterTextSplitter(
-                                        chunk_size=1000,
-                                        chunk_overlap=200,
-                                        length_function=len,
-                                    )
-                                    text_chunks = text_splitter.split_text(content)
-                                    for i, chunk in enumerate(text_chunks):
-                                        documents.append(Document(
-                                            page_content=chunk,
-                                            metadata={
-                                                "source": str(file_path),
-                                                "type": "text",
-                                                "file_name": file_path.name,
-                                                "chunk_index": i
-                                            }
-                                        ))
+                                    # Use language-aware chunking for other files
+                                    chunks = self.parse_code_file(file_path, content)
+                                    documents.extend(chunks)
                                 
                                 file_paths.append(str(file_path))
                                 self.file_hashes[str(file_path)] = file_hash
                                 
                                 if stored_hash is None:
                                     new_files.append(file_path)
-                                    print(f"📄 New: {file_path}")
+                                    print(f"📄 New: {file_path} ({language})")
                                 else:
                                     changed_files.append(file_path)
-                                    print(f"🔄 Updated: {file_path}")
+                                    print(f"🔄 Updated: {file_path} ({language})")
                                 print(f"   Loaded: {file_path}")
                             else:
                                 print(f"⚠️  File '{file_path}' is empty")
@@ -543,13 +591,18 @@ Do not include explanations. Only return the code block."""
                 else:
                     print(f"⏭️  Skipped (unchanged): {file_path}")
             else:
-                print(f"⚠️  File '{file_path}' is not a supported file type (.txt, .md, or .py)")
+                print(f"⚠️  File '{file_path}' is not a supported file type")
+                print(f"   Supported extensions: {', '.join(sorted(set([ext for ext in supported_extensions[:20]])))}...")
         
         # Otherwise, treat it as a directory
         elif self.documents_path.is_dir():
-            # Find all .txt, .md, and .py files
-            for ext in ["*.txt", "*.md", "*.py"]:
-                for file_path in self.documents_path.rglob(ext):
+            # Find all supported files
+            for ext in supported_extensions:
+                pattern = f"*{ext}"
+                for file_path in self.documents_path.rglob(pattern):
+                    # Skip if already processed
+                    if str(file_path) in file_paths:
+                        continue
                     file_hash = self.get_file_hash(file_path)
                     stored_hash = self.file_hashes.get(str(file_path))
                     
@@ -558,38 +611,62 @@ Do not include explanations. Only return the code block."""
                             with open(file_path, "r", encoding="utf-8") as f:
                                 content = f.read()
                                 if content.strip():
-                                    if file_path.suffix.lower() == '.py':
+                                    language = self.get_language_from_extension(file_path)
+                                    
+                                    if language == 'python':
                                         # Use AST parsing for Python files
                                         chunks = self.parse_python_file(file_path, content)
                                         documents.extend(chunks)
                                     else:
-                                        # Regular chunking for text files
-                                        text_splitter = RecursiveCharacterTextSplitter(
-                                            chunk_size=1000,
-                                            chunk_overlap=200,
-                                            length_function=len,
-                                        )
-                                        text_chunks = text_splitter.split_text(content)
-                                        for i, chunk in enumerate(text_chunks):
-                                            documents.append(Document(
-                                                page_content=chunk,
-                                                metadata={
-                                                    "source": str(file_path),
-                                                    "type": "text",
-                                                    "file_name": file_path.name,
-                                                    "chunk_index": i
-                                                }
-                                            ))
+                                        # Use language-aware chunking for other files
+                                        chunks = self.parse_code_file(file_path, content)
+                                        documents.extend(chunks)
                                     
                                     file_paths.append(str(file_path))
                                     self.file_hashes[str(file_path)] = file_hash
                                     
                                     if stored_hash is None:
                                         new_files.append(file_path)
-                                        print(f"📄 New: {file_path}")
+                                        print(f"📄 New: {file_path} ({language})")
                                     else:
                                         changed_files.append(file_path)
-                                        print(f"🔄 Updated: {file_path}")
+                                        print(f"🔄 Updated: {file_path} ({language})")
+                        except Exception as e:
+                            print(f"Error loading {file_path}: {e}")
+                    else:
+                        print(f"⏭️  Skipped (unchanged): {file_path}")
+            
+            # Also search for special filenames (no extension)
+            special_filenames = ['Makefile', 'CMakeLists.txt']
+            for special_name in special_filenames:
+                for file_path in self.documents_path.rglob(special_name):
+                    # Skip if already processed
+                    if str(file_path) in file_paths:
+                        continue
+                    
+                    file_hash = self.get_file_hash(file_path)
+                    stored_hash = self.file_hashes.get(str(file_path))
+                    
+                    if not incremental or file_hash != stored_hash:
+                        try:
+                            with open(file_path, "r", encoding="utf-8") as f:
+                                content = f.read()
+                                if content.strip():
+                                    language = self.get_language_from_extension(file_path)
+                                    
+                                    # Use language-aware chunking
+                                    chunks = self.parse_code_file(file_path, content)
+                                    documents.extend(chunks)
+                                    
+                                    file_paths.append(str(file_path))
+                                    self.file_hashes[str(file_path)] = file_hash
+                                    
+                                    if stored_hash is None:
+                                        new_files.append(file_path)
+                                        print(f"📄 New: {file_path} ({language})")
+                                    else:
+                                        changed_files.append(file_path)
+                                        print(f"🔄 Updated: {file_path} ({language})")
                         except Exception as e:
                             print(f"Error loading {file_path}: {e}")
                     else:
@@ -718,7 +795,7 @@ Do not include explanations. Only return the code block."""
         
         Args:
             question: The question to ask
-            filter_metadata: Optional metadata filter (e.g., {"file_name": "utils.py"})
+            filter_metadata: Optional metadata filter (e.g., {"file_name": "utils.py"}, {"language": "typescript"})
         """
         if not self.qa_chain:
             return "❌ QA chain not set up. Please index documents first."
@@ -768,10 +845,11 @@ Do not include explanations. Only return the code block."""
                         meta = doc.metadata if hasattr(doc, "metadata") else {}
                         source_name = meta.get("file_name", Path(meta.get("source", "")).name if meta.get("source") else "unknown")
                         source_type = meta.get("type", "text")
+                        language = meta.get("language", "unknown")
                         if meta.get("name"):
-                            source_info.append(f"{source_name} ({source_type}: {meta['name']})")
+                            source_info.append(f"{source_name} ({language}, {source_type}: {meta['name']})")
                         else:
-                            source_info.append(f"{source_name}")
+                            source_info.append(f"{source_name} ({language})")
                     if source_info:
                         answer += f"\n\n📄 Sources: {', '.join(set(source_info))}"
                 
@@ -849,26 +927,106 @@ Please answer the user's question using the current date/time information provid
         matches = re.findall(pattern, text, re.DOTALL)
         return [(lang.strip() if lang else '', code.strip()) for lang, code in matches]
     
-    def create_python_file(self, filename: str, code: str, output_dir: str = ".") -> str:
-        """Create a Python file with the given code."""
+    def edit_file_inline(self, file_path: Path, instruction: str) -> Tuple[bool, str]:
+        """
+        Edit a file based on a natural language instruction.
+        Uses the LLM to generate the edit, then applies it with diff preview.
+        Supports all file types.
+        """
+        if not self.qa_chain:
+            return False, "❌ QA chain not set up. Please index documents first."
+        
+        # Read the file
         try:
-            if not filename.endswith('.py'):
-                filename += '.py'
-            
-            output_path = Path(output_dir)
-            output_path.mkdir(parents=True, exist_ok=True)
-            
-            file_path = output_path / filename
-            
-            if file_path.exists():
-                return f"⚠️  File '{file_path}' already exists. Not overwriting."
-            
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(code)
-            
-            return f"✅ Created Python file: {file_path}"
+            with open(file_path, 'r', encoding='utf-8') as f:
+                file_content = f.read()
         except Exception as e:
-            return f"❌ Error creating file: {e}"
+            return False, f"❌ Error reading file: {e}"
+        
+        # Detect language
+        language = self.get_language_from_extension(file_path)
+        
+        # Ask LLM to generate the edited version
+        prompt = f"""You are a code editor. Edit the following {language} file according to the instruction.
+
+CURRENT FILE ({file_path.name}):
+```{language}
+{file_content}
+```
+
+INSTRUCTION: {instruction}
+
+REQUIREMENTS:
+1. You MUST modify the code according to the instruction
+2. Return the COMPLETE file with your changes
+3. Preserve all existing code that doesn't need to change
+4. Only modify what the instruction asks for
+5. Keep the same file structure, imports, and formatting
+6. Maintain the correct syntax for {language}
+
+Return ONLY the complete edited code in a markdown code block:
+```{language}
+[complete file with edits applied]
+```
+
+Do not include explanations. Only return the code block."""
+        
+        try:
+            result = self.qa_chain.invoke({"question": prompt})
+            answer = result["answer"]
+            
+            # Extract code block
+            code_blocks = self.extract_code_blocks(answer)
+            if not code_blocks:
+                return False, "❌ LLM did not return code in a code block. Try rephrasing your request."
+            
+            # Get the code (should be the full file)
+            new_content = code_blocks[0][1]  # (lang, code)
+            
+            # Normalize whitespace for comparison
+            old_normalized = file_content.replace('\r\n', '\n').replace('\r', '\n').strip()
+            new_normalized = new_content.replace('\r\n', '\n').replace('\r', '\n').strip()
+            
+            # Check if content actually changed
+            if old_normalized == new_normalized:
+                return False, "❌ LLM returned unchanged code. The edit instruction may not have been clear enough, or the model didn't make the requested changes. Try rephrasing your instruction."
+            
+            # Create backup
+            backup_path = self.backup_file(file_path)
+            if not backup_path:
+                return False, "❌ Could not create backup. Aborting edit."
+            
+            # Create diff
+            diff = self.create_diff(file_content, new_content, file_path.name)
+            
+            # Show preview
+            print(f"\n📝 Proposed changes to {file_path.name}:")
+            print("=" * 60)
+            print(diff)
+            print("=" * 60)
+            
+            # Ask for approval
+            while True:
+                choice = input("\nApply changes? [y/n]: ").strip().lower()
+                if choice == 'y' or choice == 'yes':
+                    try:
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            f.write(new_content)
+                        
+                        # Update file hash
+                        self.file_hashes[str(file_path)] = self.get_file_hash(file_path)
+                        self.save_file_hashes()
+                        
+                        return True, f"✅ Updated {file_path.name} (backup: {backup_path.name})"
+                    except Exception as e:
+                        return False, f"❌ Error writing file: {e}"
+                elif choice == 'n' or choice == 'no':
+                    return False, "❌ Edit cancelled by user."
+                else:
+                    print("Please enter 'y' or 'n'")
+        
+        except Exception as e:
+            return False, f"❌ Error generating edit: {e}"
     
     def chat(self):
         """Start an interactive chat session with inline editing capabilities."""
@@ -876,15 +1034,29 @@ Please answer the user's question using the current date/time information provid
             print("❌ QA chain not set up. Please index documents first.")
             return
         
+        # Initialize log file with session header
+        if self.log_file:
+            try:
+                with open(self.log_file, 'a', encoding='utf-8') as f:
+                    f.write("\n" + "="*80 + "\n")
+                    f.write(f"NEW SESSION STARTED: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"Model: {self.openai_model if self.use_openai else self.ollama_model}\n")
+                    f.write(f"Collection: {self.collection_name}\n")
+                    f.write("="*80 + "\n")
+                print(f"📝 Conversation logging to: {self.log_file}")
+            except Exception as e:
+                print(f"⚠️  Could not initialize log file: {e}")
+        
         print("\n" + "="*60)
-        print("💬 Inline Edit RAG - Enhanced Chat with Code Editing")
+        print("💬 Integrated RAG - Multi-Language Chat with Code Editing")
         print("   Type 'quit' or 'exit' to end the conversation")
         print("   Type 'clear' to clear conversation history")
-        print("   Type 'filter: filename.py' to filter by file")
-        print("   Type 'filter: function function_name' to filter by function")
-        print("   Type 'edit: filename.py instruction' to edit a file")
-        print("   Type 'edit: function function_name new_code' to edit a function")
+        print("   Type 'filter: filename.ext' to filter by file")
+        print("   Type 'filter: language typescript' to filter by language")
+        print("   Type 'edit: filename.ext instruction' to edit a file")
         print("   When code is generated, you'll be asked to save or display it")
+        if self.log_file:
+            print(f"   📝 Full conversation logged to: {self.log_file}")
         print("="*60 + "\n")
         
         current_filter = None
@@ -898,7 +1070,16 @@ Please answer the user's question using the current date/time information provid
                 
                 if question.lower() in ["quit", "exit", "q"]:
                     self.save_memory()
+                    if self.log_file:
+                        try:
+                            with open(self.log_file, 'a', encoding='utf-8') as f:
+                                f.write(f"\nSESSION ENDED: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                                f.write("="*80 + "\n\n")
+                        except:
+                            pass
                     print("👋 Goodbye! Conversation history saved.")
+                    if self.log_file:
+                        print(f"📝 Full conversation logged to: {self.log_file}")
                     break
                 
                 if question.lower() == "clear":
@@ -913,8 +1094,8 @@ Please answer the user's question using the current date/time information provid
                     parts = edit_cmd.split(None, 1)
                     
                     if len(parts) < 2:
-                        print("❌ Usage: edit: filename.py instruction")
-                        print("   Example: edit: add_numbers.py Add error handling")
+                        print("❌ Usage: edit: filename.ext instruction")
+                        print("   Example: edit: app.ts Add error handling")
                         continue
                     
                     target = parts[0]
@@ -927,9 +1108,10 @@ Please answer the user's question using the current date/time information provid
                     elif (self.documents_path / target).exists():
                         file_path = self.documents_path / target
                     else:
-                        # Search in documents directory
-                        for ext in ["*.py", "*.txt", "*.md"]:
-                            for f in self.documents_path.rglob(ext):
+                        # Search in documents directory for all supported extensions
+                        for ext in self.get_supported_extensions():
+                            pattern = f"*{ext}"
+                            for f in self.documents_path.rglob(pattern):
                                 if f.name == target:
                                     file_path = f
                                     break
@@ -959,7 +1141,11 @@ Please answer the user's question using the current date/time information provid
                 # Handle metadata filtering
                 if question.lower().startswith("filter:"):
                     filter_cmd = question[7:].strip()
-                    if filter_cmd.endswith('.py') or filter_cmd.endswith('.txt') or filter_cmd.endswith('.md'):
+                    if filter_cmd.startswith("language "):
+                        lang_name = filter_cmd[9:].strip()
+                        current_filter = {"language": lang_name}
+                        print(f"✅ Filter set to language: {lang_name}\n")
+                    elif any(filter_cmd.endswith(ext) for ext in self.get_supported_extensions()):
                         current_filter = {"file_name": filter_cmd}
                         print(f"✅ Filter set to: {filter_cmd}\n")
                     elif filter_cmd.startswith("function "):
@@ -970,12 +1156,16 @@ Please answer the user's question using the current date/time information provid
                         current_filter = None
                         print("✅ Filter cleared\n")
                     else:
-                        print("❌ Invalid filter. Use 'filter: filename.py' or 'filter: function name'\n")
+                        print("❌ Invalid filter. Use 'filter: filename.ext', 'filter: language langname', or 'filter: function name'\n")
                     continue
                 
                 print("\n🤖 Assistant: ", end="", flush=True)
                 answer = self.ask(question, filter_metadata=current_filter)
                 print(answer)
+                
+                # Log conversation to file
+                filter_meta = current_filter if current_filter else None
+                self.log_conversation(question, answer, metadata=filter_meta)
                 
                 # Save memory after each exchange
                 self.save_memory()
@@ -983,20 +1173,20 @@ Please answer the user's question using the current date/time information provid
                 # Check if answer contains code blocks
                 code_blocks = self.extract_code_blocks(answer)
                 if code_blocks:
-                    python_code = None
+                    code = None
                     code_lang = None
-                    for lang, code in code_blocks:
-                        if lang.lower() in ['python', 'py', ''] or not lang:
-                            python_code = code
-                            code_lang = lang if lang else 'python'
+                    for lang, code_content in code_blocks:
+                        if lang:
+                            code = code_content
+                            code_lang = lang
                             break
                     
-                    if not python_code and code_blocks:
-                        code_lang, python_code = code_blocks[0]
+                    if not code and code_blocks:
+                        code_lang, code = code_blocks[0]
                         if not code_lang:
-                            code_lang = 'python'
+                            code_lang = 'text'
                     
-                    if python_code:
+                    if code:
                         print(f"\n💡 Found {code_lang} code block. What would you like to do?")
                         print("   [s] Save to file")
                         print("   [d] Display code only (don't save)")
@@ -1006,20 +1196,73 @@ Please answer the user's question using the current date/time information provid
                             choice = input("\nYour choice (s/d/n): ").strip().lower()
                             
                             if choice == 's' or choice == 'save':
+                                # Determine file extension from language
+                                lang_to_ext = {
+                                    'python': '.py',
+                                    'typescript': '.ts',
+                                    'javascript': '.js',
+                                    'cpp': '.cpp',
+                                    'c': '.c',
+                                    'java': '.java',
+                                    'go': '.go',
+                                    'rust': '.rs',
+                                    'ruby': '.rb',
+                                    'php': '.php',
+                                    'swift': '.swift',
+                                    'kotlin': '.kt',
+                                    'scala': '.scala',
+                                    'bash': '.sh',
+                                    'yaml': '.yaml',
+                                    'json': '.json',
+                                    'html': '.html',
+                                    'css': '.css',
+                                    'sql': '.sql',
+                                    'systemverilog': '.sv',
+                                    'verilog': '.v',
+                                    'vhdl': '.vhd',
+                                    'perl': '.pl',
+                                    'tcl': '.tcl',
+                                    # Build systems
+                                    'makefile': 'Makefile',
+                                    'cmake': 'CMakeLists.txt',
+                                    # ASIC Physical Design
+                                    'lef': '.lef',
+                                    'def': '.def',
+                                    'spef': '.spef',
+                                    'sdc': '.sdc',
+                                    'lib': '.lib',
+                                    'sdf': '.sdf',
+                                    'spice': '.sp',
+                                    'cdl': '.cdl',
+                                    'upf': '.upf',
+                                    'cpf': '.cpf',
+                                }
+                                ext = lang_to_ext.get(code_lang.lower(), '.txt')
+                                
                                 filename = re.sub(r'[^\w\s-]', '', question.lower())
                                 filename = re.sub(r'[-\s]+', '_', filename)
                                 filename = filename[:30]
                                 if not filename:
                                     filename = "generated_code"
-                                filename += ".py"
+                                filename += ext
                                 
-                                result = self.create_python_file(filename, python_code)
-                                print(f"\n{result}\n")
+                                try:
+                                    output_path = Path(".")
+                                    file_path = output_path / filename
+                                    
+                                    if file_path.exists():
+                                        print(f"⚠️  File '{file_path}' already exists. Not overwriting.\n")
+                                    else:
+                                        with open(file_path, 'w', encoding='utf-8') as f:
+                                            f.write(code)
+                                        print(f"✅ Created file: {file_path}\n")
+                                except Exception as e:
+                                    print(f"❌ Error creating file: {e}\n")
                                 break
                             
                             elif choice == 'd' or choice == 'display':
                                 print(f"\n📝 Code:\n```{code_lang}")
-                                print(python_code)
+                                print(code)
                                 print("```\n")
                                 break
                             
@@ -1034,11 +1277,29 @@ Please answer the user's question using the current date/time information provid
                 
             except KeyboardInterrupt:
                 self.save_memory()
+                if self.log_file:
+                    try:
+                        with open(self.log_file, 'a', encoding='utf-8') as f:
+                            f.write(f"\nSESSION ENDED (KeyboardInterrupt): {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                            f.write("="*80 + "\n\n")
+                    except:
+                        pass
                 print("\n\n👋 Goodbye! Conversation history saved.")
+                if self.log_file:
+                    print(f"📝 Full conversation logged to: {self.log_file}")
                 break
             except EOFError:
                 self.save_memory()
+                if self.log_file:
+                    try:
+                        with open(self.log_file, 'a', encoding='utf-8') as f:
+                            f.write(f"\nSESSION ENDED (EOF): {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                            f.write("="*80 + "\n\n")
+                    except:
+                        pass
                 print("\n\n👋 Goodbye! Conversation history saved.")
+                if self.log_file:
+                    print(f"📝 Full conversation logged to: {self.log_file}")
                 break
 
 
@@ -1047,13 +1308,13 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description="Inline Edit RAG CLI - RAG with inline code editing capabilities"
+        description="Integrated RAG CLI - RAG with support for all file types"
     )
     parser.add_argument(
         "--documents",
         type=str,
         default="documents",
-        help="Path to a file or directory containing .txt, .md, or .py files (default: 'documents')"
+        help="Path to a file or directory containing files of any supported type (default: 'documents')"
     )
     parser.add_argument(
         "--reindex",
@@ -1089,16 +1350,27 @@ def main():
         default="default",
         help="ChromaDB collection name (allows multiple indexes, default: 'default')"
     )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        dest="log_file",
+        default=".rag_conversation.log",
+        help="Path to conversation log file (default: '.rag_conversation.log', use 'none' to disable)"
+    )
     
     args = parser.parse_args()
     
+    # Handle log file option
+    log_file = None if args.log_file.lower() == 'none' else args.log_file
+    
     # Initialize RAG system
-    rag = InlineEditRAG(
+    rag = IntegratedRAG(
         documents_path=args.documents,
         use_openai=args.openai,
         ollama_model=args.model,
         openai_model=args.openai_model,
-        collection_name=args.collection
+        collection_name=args.collection,
+        log_file=log_file
     )
     
     # Index documents
