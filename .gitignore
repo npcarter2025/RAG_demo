@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+
+# Vector database
+chroma_db/
+*.db
+*.sqlite
+*.sqlite3
+
+# RAG system files
+.rag_memory*.json
+.file_hashes*.json
+.backups/
+
+# Test files (optional - uncomment if you don't want to commit tests)
+# test_*.py
+
+# Continue.dev source code (if you don't want to include it)
+continue/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Generated files
+*.pyc
+*.pyo

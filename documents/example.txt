@@ -1,0 +1,23 @@
+Simple RAG System
+
+This is an example document for testing the Simple RAG CLI.
+
+The system uses Retrieval Augmented Generation to answer questions about your documents.
+
+Key Features:
+- Chat with your documents
+- Supports .txt and .md files
+- Uses Ollama for local LLM
+- Persistent vector store
+- Conversation memory
+
+To use:
+1. Add your documents to the documents/ folder
+2. Run: python simple_rag.py
+3. Ask questions about your documents
+
+
+
+
+
+

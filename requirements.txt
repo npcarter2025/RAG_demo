@@ -1,0 +1,11 @@
+# Simple RAG CLI - Minimal Dependencies
+langchain>=0.1.0
+langchain-openai>=0.1.0
+langchain-community>=0.0.20
+langchain-chroma>=1.0.0
+langchain-ollama>=1.0.0
+langchain-huggingface>=1.0.0
+langchain-text-splitters>=1.0.0
+chromadb>=0.4.22
+sentence-transformers>=2.3.1
+python-dotenv>=1.0.0
