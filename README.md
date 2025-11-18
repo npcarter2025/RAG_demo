@@ -1,4 +1,5 @@
 # RootSearch - RAG CLI System
+Someone help me thing of a better name please.
 
 A sophisticated Retrieval Augmented Generation (RAG) CLI system for chatting with documents and code repositories. Three progressively enhanced implementations are provided.
 
@@ -6,7 +7,10 @@ A sophisticated Retrieval Augmented Generation (RAG) CLI system for chatting wit
 
 - ✅ Chat with your documents in the terminal
 - ✅ Supports `.txt`, `.md`, and `.py` files
-- ✅ Uses Ollama (local LLM) by default - no API keys needed!
+- ✅ Supports just about Every file type at this point too.
+- File support for .pdf coming soon.
+- ✅ Uses Ollama (local LLM) by default -
+- ✅ Optional OpenRouter support
 - ✅ Optional OpenAI support
 - ✅ Persistent vector store (only indexes once)
 - ✅ Conversation memory (remembers context)
